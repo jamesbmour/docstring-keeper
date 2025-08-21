@@ -6,7 +6,7 @@ import streamlit as st
 st.set_page_config(page_title="Strip Python Function Bodies", page_icon="🧹", layout="centered")
 st.title("🧹 Strip Python Function Bodies (Keep Docstrings)")
 st.write(
-    "Upload a .py file. This app removes all statements inside every function/method, "
+    "Upload a .py file or paste code. This app removes all statements inside every function/method, "
     "keeping only the function signature and the docstring (if present). "
     "If a function has no docstring, a `pass` is inserted to remain syntactically valid.\n\n"
     "_Note: Formatting and comments are not preserved (AST-based transform). Requires Python 3.9+._"
@@ -78,40 +78,66 @@ def transform_source(source: str) -> str:
         new_source += "\n"
     return new_source
 
-uploaded = st.file_uploader("Upload a Python file", type=["py"])
-process = st.button("Transform", type="primary", disabled=(uploaded is None))
+# --- UI: Choose input method ---
+method = st.radio("Choose input method", ["Upload file", "Paste code"], index=0, horizontal=True)
 
-if uploaded is not None and process:
-    # Read and decode the uploaded file
-    raw = uploaded.read()
-    text = None
-    for enc in ("utf-8", "utf-8-sig", "latin-1"):
-        try:
-            text = raw.decode(enc)
-            break
-        except UnicodeDecodeError:
-            continue
-    if text is None:
-        st.error("Could not decode file. Please upload a UTF-8 encoded .py file.")
-    else:
-        try:
-            new_source = transform_source(text)
+uploaded = None
+pasted_text = None
+
+if method == "Upload file":
+    uploaded = st.file_uploader("Upload a Python file", type=["py"])
+else:
+    pasted_text = st.text_area(
+        "Paste Python code",
+        height=300,
+        placeholder="Paste your .py code here...",
+    )
+
+# Enable Transform button only when we have input
+if method == "Upload file":
+    can_process = uploaded is not None
+else:
+    can_process = bool(pasted_text and pasted_text.strip())
+
+process = st.button("Transform", type="primary", disabled=not can_process)
+
+if process:
+    try:
+        if method == "Upload file":
+            # Read and decode the uploaded file
+            raw = uploaded.read()
+            text = None
+            for enc in ("utf-8", "utf-8-sig", "latin-1"):
+                try:
+                    text = raw.decode(enc)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            if text is None:
+                st.error("Could not decode file. Please upload a UTF-8 encoded .py file.")
+                st.stop()
             base_name = uploaded.name.rsplit(".", 1)[0]
             out_name = f"{base_name}_stripped.py"
+        else:
+            text = pasted_text or ""
+            base_name = "pasted"
+            out_name = f"{base_name}_stripped.py"
 
-            st.success("Transformation complete.")
-            st.download_button(
-                "Download transformed file",
-                data=new_source.encode("utf-8"),
-                file_name=out_name,
-                mime="text/x-python",
-            )
+        new_source = transform_source(text)
 
-            st.subheader("Preview (copyable)")
-            st.code(new_source, language="python")
+        st.success("Transformation complete.")
+        st.download_button(
+            "Download transformed file",
+            data=new_source.encode("utf-8"),
+            file_name=out_name,
+            mime="text/x-python",
+        )
 
-        except Exception as e:
-            st.error(f"Error: {e}")
+        st.subheader("Preview (copyable)")
+        st.code(new_source, language="python")
+
+    except Exception as e:
+        st.error(f"Error: {e}")
 
 with st.expander("Details and behavior"):
     st.markdown(
