@@ -146,7 +146,7 @@ def transform_source_preserve_outside_comments(source: str) -> str:
     return new_src
 
 # --- UI: Choose input method ---
-method = st.radio("Choose input method", ["Upload file", "Paste code"], index=0, horizontal=True)
+method = st.radio("Choose input method", ["Upload file", "Paste code"], index=1, horizontal=True)
 
 uploaded = None
 pasted_text = None
